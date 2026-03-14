@@ -1,0 +1,5 @@
+settings:
+  tts: 
+    speaker: en_73
+    model: v3_en
+

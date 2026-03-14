@@ -1,0 +1,8 @@
+settings:
+  mode: "text"
+  tts: 
+    enable: true
+    enable_caching: true
+  lang:
+    prefix: "en"
+    locales: "config/lang"

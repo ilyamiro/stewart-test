@@ -1,17 +1,20 @@
-from source.core.config import Loader
 from source.core.plugins import PluginManager
 import logging
 import time
 
 log = logging.getLogger(__name__)
 
-class App():
+
+class App:
     def __init__(self, api):
         self.api = api
         self._check_api_config()
 
         self.pluginm = PluginManager(self.api)
-        self.pluginm.load("plugins/core/manifest.yaml")
+        loaded, failed = self.pluginm.load_all("plugins")
+        log.info("Loaded plugins: %s", loaded)
+        if failed:
+            log.warning("Plugins not loaded: %s", failed)
 
     def _check_api_config(self, default: str = "config/config.yaml") -> None:
         """
@@ -22,10 +25,7 @@ class App():
             log.debug(f"API did not provide a config. Falling back to {default}")
             self.api.load_config(default)
 
-
-    def process(self, text): # placeholder
+    def process(self, text):  # placeholder
         while True:
             time.sleep(1)
             print(text)
-
-

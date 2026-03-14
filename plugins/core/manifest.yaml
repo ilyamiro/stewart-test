@@ -1,4 +1,12 @@
 id: ilyamiro/core
 name: Core plugin
 version: 0.0.1
+assistant_api: "1.0"
 description: Core plugin for stewart featuring main basic functions
+entrypoints:
+  - core.py
+permissions:
+  - assistant.core
+  - assistant.events
+depends_on: []
+enabled: true

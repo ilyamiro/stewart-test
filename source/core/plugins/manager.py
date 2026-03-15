@@ -118,3 +118,37 @@ class PluginManager:
         self._import_plugin(plugin_dir, plugin.entrypoint)
 
         return True
+
+    def discover_manifests(self, plugin_dirs, manifest_name="manifest.yaml"):
+        """Discover plugin manifests from one or more plugin directories."""
+        manifests = []
+
+        if isinstance(plugin_dirs, str):
+            plugin_dirs = [plugin_dirs]
+
+        for plugin_dir in plugin_dirs:
+            root = os.path.abspath(os.path.expanduser(plugin_dir))
+
+            if not os.path.isdir(root):
+                log.warning(f"Plugin directory not found: {root}. Skipping.")
+                continue
+
+            for current_dir, _, files in os.walk(root):
+                if manifest_name in files:
+                    manifests.append(os.path.join(current_dir, manifest_name))
+
+        # Keep discovery deterministic.
+        manifests.sort()
+        return manifests
+
+    def discover_and_load(self, plugin_dirs, manifest_name="manifest.yaml"):
+        """Discover manifests under plugin_dirs and load each plugin."""
+        manifests = self.discover_manifests(plugin_dirs, manifest_name=manifest_name)
+        loaded = 0
+
+        for manifest in manifests:
+            if self.load(manifest):
+                loaded += 1
+
+        log.info(f"Loaded {loaded}/{len(manifests)} plugins from discovery paths")
+        return loaded

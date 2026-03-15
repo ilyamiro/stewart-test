@@ -21,7 +21,8 @@ class App():
         self._add_cycles([Cycle("app.start", [Event(test, 50, "event_test")])])
 
         self.pluginm = PluginManager(self.api)
-        self.pluginm.load("plugins/core/manifest.yaml")
+        plugin_dirs = self.api.loader.get("settings.plugins.paths", ["plugins"])
+        self.pluginm.discover_and_load(plugin_dirs)
 
         payload = self.api.bus.run()
         print(payload)

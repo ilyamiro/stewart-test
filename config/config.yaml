@@ -6,3 +6,6 @@ settings:
   lang:
     prefix: "en"
     locales: "config/lang"
+  plugins:
+    paths:
+      - "plugins"

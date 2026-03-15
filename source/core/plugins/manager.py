@@ -4,15 +4,19 @@ import yaml
 import importlib.util
 import logging
 
+from source.core.events import Cycle, Event
+
 log = logging.getLogger(__name__)
 
 class Plugin:
-    def __init__(self, plugin_id, name, version, path):
+    def __init__(self, plugin_id, name, version, path, entrypoint, dependencies, api_version):
         self.id = plugin_id
         self.name = name
         self.version = version
         self.path = path
-
+        self.entrypoint = entrypoint
+        self.dependencies = dependencies
+        self.api_version = api_version
 
 class PluginManager:
     def __init__(self, api):
@@ -24,12 +28,17 @@ class PluginManager:
         name = manifest.get("name")
         version = manifest.get("version")
 
+        # Pull new safe defaults
+        entrypoint = manifest.get("entrypoint", "main.py")
+        dependencies = manifest.get("dependencies", [])
+        api_version = manifest.get("api_version", "1.0.0")
+
         if not plugin_id:
-            log.debug("Plugin id is missing in manifest")
+            log.error("Plugin id is missing in manifest")
             return False
 
         if "/" not in plugin_id:
-            log.debug(f"Plugin id '{plugin_id}' must follow 'namespace/plugin'")
+            log.error(f"Plugin id '{plugin_id}' must follow 'namespace/plugin'")
             return False
 
         if plugin_id in self.plugins:
@@ -40,37 +49,45 @@ class PluginManager:
             plugin_id=plugin_id,
             name=name,
             version=version,
-            path=plugin_path
+            path=plugin_path,
+            entrypoint=entrypoint,
+            dependencies=dependencies,
+            api_version=api_version
         )
         return plugin
 
-    def _import_plugin(self, directory):
-        for root, _, files in os.walk(directory):
-            for filename in files:
-                if not filename.endswith(".py"):
-                    continue
+    def _import_plugin(self, plugin_dir, entrypoint):
+        """Loads ONLY the specified entrypoint file, ignoring utilities and tests."""
+        file_path = os.path.join(plugin_dir, entrypoint)
 
-                file_path = os.path.join(root, filename)
-                module_name = f"plugin_{hash(file_path)}"
+        if not os.path.exists(file_path):
+            log.error(f"Plugin entrypoint not found: {file_path}")
+            return False
 
-                try:
-                    spec = importlib.util.spec_from_file_location(module_name, file_path)
-                    if spec is None or spec.loader is None:
-                        log.warning(f"Could not load spec for {file_path}")
-                        continue
+        module_name = f"plugin_{hash(file_path)}"
 
-                    module = importlib.util.module_from_spec(spec)
+        try:
+            spec = importlib.util.spec_from_file_location(module_name, file_path)
+            if spec is None or spec.loader is None:
+                log.error(f"Could not load spec for {file_path}")
+                return False
 
-                    setattr(module, "api", self.api)
+            module = importlib.util.module_from_spec(spec)
 
-                    # Execute the module
-                    sys.modules[module_name] = module
-                    spec.loader.exec_module(module)
+            setattr(module, "api", self.api)
+            setattr(module, "Event", Event)
+            setattr(module, "Cycle", Cycle)
 
-                    log.info(f"Loaded plugin module {file_path}")
+            # Execute the module
+            sys.modules[module_name] = module
+            spec.loader.exec_module(module)
 
-                except Exception as e:
-                    log.warning(f"Failed to load plugin module {file_path}: {e}")
+            log.info(f"Loaded plugin module {file_path}")
+            return True
+
+        except Exception as e:
+            log.error(f"Failed to load plugin module {file_path}: {e}")
+            return False
 
     def load(self, manifest_path):
         plugin_manifest_path = os.path.abspath(manifest_path)
@@ -92,10 +109,12 @@ class PluginManager:
             log.warning(f"Error processing plugin manifest at {plugin_manifest_path}")
             return False
 
+        # Register the plugin object
         self.plugins[plugin.id] = plugin
 
         plugin_dir = os.path.dirname(plugin_manifest_path)
-        self._import_plugin(plugin_dir)
+
+        # Execute only the designated entrypoint
+        self._import_plugin(plugin_dir, plugin.entrypoint)
 
         return True
-

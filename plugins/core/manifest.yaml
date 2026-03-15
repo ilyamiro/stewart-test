@@ -1,4 +1,7 @@
 id: ilyamiro/core
 name: Core plugin
 version: 0.0.1
-description: Core plugin for stewart featuring main basic functions
+description: Core plugin for stewart featuring main basic functions.
+entrypoint: core.py
+api_version: "1.0.0"
+# dependencies: Reserved

@@ -5,9 +5,14 @@ from source.api.api import Event # Importing the new Event class
 import logging
 import time
 from typing import List
+
 from source.core.events import Cycle
+from source.architecture.stt.stt import add_events
 
 log = logging.getLogger(__name__)
+
+def test(payload):
+    print("start event")
 
 class App():
     def __init__(self, api):
@@ -15,6 +20,7 @@ class App():
         self._check_api_config()
 
         self._add_cycles([Cycle("app.start", [Event(test, 50, "event_test")])])
+        add_events()
 
         self.pluginm = PluginManager(self.api)
         self.pluginm.discover_and_load(self.api.loader.get("settings.plugins.paths", ["plugins"]))

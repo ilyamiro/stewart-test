@@ -12,9 +12,9 @@ def main():
     log.debug(f"Application started. PID: {os.getpid()}")
 
     app = App(api)
+    app.run()
 
     app.process("Hello")
-
 
 
 

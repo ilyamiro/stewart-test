@@ -16,6 +16,8 @@ class Payload:
     # Internal flags for cancellation state
     _cancel_cycle: bool = False
     _cancel_pipeline: bool = False
+    _next_cycle: Optional[str] = None
+    _repeat_cycle: bool = False
 
     def cancel_cycle(self):
         """Signals that remaining events in the current cycle should be skipped."""
@@ -25,6 +27,15 @@ class Payload:
         """Signals that the entire pipeline should halt immediately."""
         self._cancel_pipeline = True
         self._cancel_cycle = True
+
+    def route_to_cycle(self, cycle_name: str):
+        """Routes pipeline execution to a specific next cycle."""
+        self._next_cycle = cycle_name
+
+    def repeat_cycle(self):
+        """Schedules the current cycle to run again after it finishes."""
+        self._repeat_cycle = True
+
 
 
 @dataclass
@@ -61,9 +72,10 @@ class Cycle:
     """
     Represents a stage in the pipeline containing multiple sorted events.
     """
-    def __init__(self, name: str, events: List[Event]):
+    def __init__(self, name: str, events: List[Event], next_cycle: Optional[str] = None):
         self.name: str = name
         self._events: List[Event] = events
+        self.next_cycle: Optional[str] = next_cycle
 
     def run(self, payload: Payload) -> Payload:
         log.debug(f"Starting cycle: {self.name}")
@@ -116,6 +128,7 @@ class EventBus:
         if cycle not in self._cycles:
             log.info(f"Cycle '{cycle}' not found. Creating it dynamically.")
             self.add_cycle(Cycle(cycle, [new_event]))
+            return
 
         self._cycles[cycle].add_event(new_event)
 
@@ -126,13 +139,47 @@ class EventBus:
         payload = Payload(data=initial_data or {})
         log.info("Starting pipeline execution.")
 
-        for cycle_name, cycle in self._cycles.items():
-            # Check global pipeline cancellation before entering the next cycle
+        cycle_names = list(self._cycles)
+        if not cycle_names:
+            log.info("No cycles registered. Nothing to execute.")
+            return payload
+
+        cycle_order = {name: index for index, name in enumerate(cycle_names)}
+        current_cycle_name = cycle_names[0]
+
+        while current_cycle_name is not None:
+        # Check global pipeline cancellation before entering the next cycle
             if payload._cancel_pipeline:
                 log.info("Pipeline cancelled. Skipping remaining cycles.")
                 break
 
+            cycle = self._cycles.get(current_cycle_name)
+            if cycle is None:
+                raise ValueError(f"Cycle '{current_cycle_name}' is not registered.")
+
             payload = cycle.run(payload)
+
+            # Repeating the current cycle has highest precedence.
+            if payload._repeat_cycle:
+                next_cycle = current_cycle_name
+                payload._repeat_cycle = False
+                payload._next_cycle = None
+            else:
+                # Payload routing overrides cycle-level next_cycle and default order.
+                next_cycle = payload._next_cycle
+                payload._next_cycle = None
+
+            if next_cycle is None:
+                next_cycle = cycle.next_cycle
+
+            if next_cycle is None:
+                next_index = cycle_order[current_cycle_name] + 1
+                next_cycle = cycle_names[next_index] if next_index < len(cycle_names) else None
+
+            if next_cycle is not None and next_cycle not in self._cycles:
+                raise ValueError(f"Cycle '{next_cycle}' is not registered.")
+
+            current_cycle_name = next_cycle
 
         log.info("Pipeline execution finished.")
         return payload

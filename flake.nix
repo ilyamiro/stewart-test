@@ -20,10 +20,11 @@
           python311
           uv           # Ultra-fast Rust-based Python package manager
           git
+          portaudio    # ADDED: Provides portaudio.h for PyAudio compilation
         ];
 
         # 2. The Magic Sauce: LD_LIBRARY_PATH
-        # Pre-compiled Python wheels (like PyTorch) expect standard Linux C libraries. 
+        # Pre-compiled Python wheels (like PyTorch) expect standard Linux C libraries.
         # This tells the shell exactly where to find them in the Nix store.
         LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath (with pkgs; [
           stdenv.cc.cc.lib # Crucial for libstdc++.so.6
@@ -31,7 +32,8 @@
           glib             # Common C library
           libGL            # Needed for OpenCV (cv2)
           xorg.libX11      # Needed for GUI/Plotting stuff
-          
+          portaudio        # ADDED: Needed for runtime dynamic linking of PyAudio
+
           # IF YOU HAVE AN NVIDIA GPU, uncomment these three lines:
           # linuxPackages.nvidia_x11
           # cudaPackages.cudatoolkit
@@ -45,10 +47,10 @@
             echo "Creating virtual environment using uv..."
             uv venv
           fi
-          
+
           # Activate the virtual environment
           source .venv/bin/activate
-          
+
           echo "🚀 Python environment ready!"
           echo "You can now drop in packages fluidly (e.g., 'uv pip install torch numpy pandas')."
         '';

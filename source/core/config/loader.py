@@ -10,9 +10,9 @@ log = logging.getLogger("config-loader")
 class Loader:
     def __init__(self):
         self.config_data: Dict[str, Any] = {}
+        self.config_path: str = ""
 
-
-    def load(self, config_path):
+    def load(self, config_path: str) -> Dict[str, Any]:
         self.config_path = config_path
 
         if not os.path.exists(self.config_path):
@@ -32,7 +32,6 @@ class Loader:
 
     def initialize_translator(self) -> Translator:
         lang_code = self.get("settings.lang.prefix", "en")
-
         relative_locales_dir = self.get("settings.lang.locales", "config/lang")
 
         project_root = os.getcwd()
@@ -53,6 +52,4 @@ class Loader:
             else:
                 return default
 
-        return value.__init__(self)
-
-
+        return value

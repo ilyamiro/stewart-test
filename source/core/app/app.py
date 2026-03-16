@@ -9,10 +9,6 @@ from source.core.events import Cycle
 
 log = logging.getLogger(__name__)
 
-def test(payload):
-    print("TEST EVENT")
-    payload.data["key1"] = "lol"
-
 class App():
     def __init__(self, api):
         self.api = api
@@ -21,11 +17,11 @@ class App():
         self._add_cycles([Cycle("app.start", [Event(test, 50, "event_test")])])
 
         self.pluginm = PluginManager(self.api)
-        plugin_dirs = self.api.loader.get("settings.plugins.paths", ["plugins"])
-        self.pluginm.discover_and_load(plugin_dirs)
+        self.pluginm.discover_and_load(self.api.loader.get("settings.plugins.paths", ["plugins"]))
 
-        payload = self.api.bus.run()
-        print(payload)
+
+    def run(self):
+        self.api.bus.run()
 
 
     def _check_api_config(self, default: str = "config/config.yaml") -> None:
@@ -36,6 +32,15 @@ class App():
         if self.api.config is None:
             log.debug(f"API did not provide a config. Falling back to {default}")
             self.api.load_config(default)
+
+    def _configure_default_cycles(self) -> None:
+        """Configure core cycles from config, with safe defaults.
+
+        Plugins can later attach events to these cycle names.
+        """
+        cycle_names = list(self.DEFAULT_CYCLES)
+
+        self._add_cycles([Cycle(name, []) for name in cycle_names])
 
     def _add_cycles(self, cycles: List[Cycle] = []):
         for cycle in cycles:

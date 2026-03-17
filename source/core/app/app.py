@@ -9,6 +9,8 @@ from typing import List
 from source.core.events import Cycle
 from source.architecture.stt.stt import add_events
 
+from source.core.paths import CONFIG_DIR
+
 log = logging.getLogger(__name__)
 
 def test(payload):
@@ -17,7 +19,8 @@ def test(payload):
 class App():
     def __init__(self, api):
         self.api = api
-        self._check_api_config()
+        self._check_api_config(CONFIG_DIR / "config.yaml")
+        self.api.get_lang()
 
         self._add_cycles([Cycle("app.start", [Event(test, 50, "event_test")])])
         add_events()

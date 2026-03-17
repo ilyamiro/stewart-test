@@ -1,11 +1,22 @@
 settings:
   mode: "text"
-  tts: 
+  tts:
     enable: true
     enable_caching: true
+    locales:
+      en:
+        speaker: en_73
+        model: v3_en
+      ru:
+        speaker: eugene
+        model: v5_2_ru
+  input:
+    model_size: small
+    sample_rate: 48000
+    chunk_size: 4096
   lang:
     prefix: "en"
     locales: "config/lang"
-  plugins:
-    paths:
-      - "plugins"
+
+
+

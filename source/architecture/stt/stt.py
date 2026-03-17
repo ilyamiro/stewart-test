@@ -1,19 +1,20 @@
-from source.core.events import Event, Cycle
-from source.api import api
 import logging
 import json
-
-log = logging.getLogger("stt")
-
-events = []
 
 import numpy as np
 import pyaudio
 import torch
 from vosk import KaldiRecognizer, Model, SpkModel
 
-# SPK_MODEL_PATH = f"source/"
-MODEL_BASE_PATH = f"source/architecture/stt/models"
+from source.core.events import Event, Cycle
+from source.core.paths import ROOT_DIR
+from source.api import api
+
+log = logging.getLogger("stt")
+
+events = []
+
+MODEL_BASE_PATH = ROOT_DIR / "source" / "architecture" / "stt" / "models"
 
 #
 # def int2float(sound):
@@ -188,29 +189,44 @@ class STT:
     #         recognizer.SetGrammar(file.readline())
     #     return recognizer
 
-stt = STT("en", "small")
 
-def get_data(payload):
-    while True:
-        data = stt.stream.read(2048, exception_on_overflow=False)
 
-        phrase = None
-        for result in stt.listen(data):   # your generator yields only when full phrase is ready
-            phrase = result
-            break
 
-        if phrase:
-            payload.data["word"] = phrase
-            break   # leave get_data so next event (print, NLU, etc.) can execute
+def read_audio(payload):
+    data = payload.data["stt_instance"].stream.read(2048, exception_on_overflow=False)
+    payload.data["chunk"] = data
 
-def _print(payload):
-    print("RUN")
-    print(payload.data.get("word"))
+def stt_process(payload):
+    chunk = payload.data.get("chunk")
+
+    if payload.data["stt_instance"].recognizer.AcceptWaveform(chunk):
+        result = json.loads(payload.data["stt_instance"].recognizer.Result())
+        if result["text"]:
+            payload.data["phrase"] = result["text"]
+
+def phrase_handler(payload):
+    phrase = payload.data.get("phrase")
+
+    if phrase:
+        payload.data["word"] = phrase
+        print(phrase)
+
+        # important: reset recognizer so next phrase works
+        # stt.recognizer = stt.create_new_recognizer()
+        payload.data.pop("phrase", None)
+
     payload.repeat_cycle()
 
-events.append(Event(get_data, 51, "get_data"))
-events.append(Event(_print, 50, "print"))
+def create_stt(payload):
+    stt = STT(api.get_lang(), api.loader.get("settings.input.model_size"))
+    payload.data["stt_instance"] = stt
+
+events.append(Event(read_audio, 55, "read_audio"))
+events.append(Event(stt_process, 51, "stt_process"))
+events.append(Event(phrase_handler, 50, "print"))
+
 
 def add_events():
     global events
+    api.bus.add_cycle(Cycle("stt.create", [Event(create_stt, 50, "create")]))
     api.bus.add_cycle(Cycle("stt.listen", events))
